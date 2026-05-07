@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Auteurs de BD</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --ink: #070510;
+  --gold: #c9a84c;
+  --gold2: #e8c96d;
+  --cream: #f5f0e8;
+  --panel: #100e1e;
+  --card: #13111f;
+  --border: #2a2540;
+  --text: #e8e0d0;
+  --muted: #7a7090;
+  --red: #c0392b;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--ink)}
+#app{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:var(--ink);overflow:hidden}
+
+/* HEADER */
+.header{padding-top:calc(14px + env(safe-area-inset-top));padding-bottom:10px;background:var(--ink);flex-shrink:0;border-bottom:1px solid var(--border);position:relative}
+.header-inner{display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.header h1{font-family:Georgia,serif;font-size:20px;color:var(--gold);letter-spacing:0.5px}
+.header h1 span{color:var(--text);font-size:14px;display:block;font-family:Georgia,serif;font-style:italic}
+.btn-settings{background:none;border:none;color:var(--gold);font-size:22px;cursor:pointer;padding:4px}
+.btn-lang{background:none;border:none;font-size:20px;cursor:pointer;padding:4px}
+
+/* FILTRES */
+.filtres{padding:8px 12px;display:flex;gap:6px;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.filtres::-webkit-scrollbar{display:none}
+.chip{background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;font-family:Georgia,serif}
+.chip.active{background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:bold}
+
+/* TABS */
+.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;border:none;background:none;font-family:Georgia,serif;border-bottom:2px solid transparent;transition:all 0.2s}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding-bottom:calc(12px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+
+/* LISTE */
+.liste{padding:10px}
+.auteur-card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;display:flex;align-items:center;gap:12px;padding:10px;cursor:pointer;transition:border-color 0.2s}
+.auteur-card:active{border-color:var(--gold)}
+.auteur-photo{width:60px;height:60px;border-radius:8px;object-fit:cover;background:var(--panel);flex-shrink:0;border:1px solid var(--border)}
+.auteur-photo.loading{display:flex;align-items:center;justify-content:center;font-size:24px}
+.auteur-info{flex:1;min-width:0}
+.auteur-nom{font-family:Georgia,serif;font-size:15px;color:var(--gold);font-weight:bold}
+.auteur-prenom{font-size:12px;color:var(--muted);margin-bottom:2px}
+.auteur-oeuvres{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auteur-meta{display:flex;gap:6px;margin-top:4px;align-items:center}
+.badge{font-size:10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1px 6px;color:var(--muted)}
+.badge.style{border-color:#3a3060;color:#a090e0}
+.flag{font-size:14px}
+
+/* FICHE DETAIL */
+.fiche{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--ink);z-index:100;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.3s ease}
+.fiche.open{transform:translateX(0)}
+.fiche-header{padding-top:calc(14px + env(safe-area-inset-top));padding-bottom:12px;background:var(--ink);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding-left:12px;padding-right:12px;flex-shrink:0}
+.btn-back{background:none;border:none;color:var(--gold);font-size:24px;cursor:pointer;padding:4px}
+.fiche-titre{font-family:Georgia,serif;font-size:18px;color:var(--gold)}
+.fiche-body{flex:1;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.fiche-photo-wrap{position:relative;width:100%;background:transparent;display:flex;justify-content:center;padding:16px 0 8px}
+.fiche-photo{width:140px;height:140px;object-fit:cover;object-position:top;border-radius:12px;border:2px solid var(--gold)}
+.fiche-photo-overlay{position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,var(--ink))}
+.fiche-content{padding:16px}
+.fiche-name{font-family:Georgia,serif;font-size:24px;color:var(--gold);margin-bottom:4px}
+.fiche-dates{font-size:13px;color:var(--muted);margin-bottom:10px;font-style:italic}
+.fiche-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tag{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:3px 10px;font-size:12px;color:var(--text)}
+.tag.gold{border-color:var(--gold);color:var(--gold)}
+.fiche-section{margin-bottom:16px}
+.fiche-section h3{font-family:Georgia,serif;font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.fiche-section p{font-size:14px;color:var(--text);line-height:1.6}
+.oeuvres-list{display:flex;flex-wrap:wrap;gap:6px}
+.oeuvre-chip{background:var(--panel);border:1px solid #3a3060;border-radius:8px;padding:4px 10px;font-size:12px;color:#a090e0;font-family:Georgia,serif;font-style:italic}
+
+/* CARTE */
+#carte{width:100%;height:100%;background:var(--panel)}
+.carte-wrap{flex:1;overflow:hidden}
+
+/* QUIZ */
+.quiz-wrap{padding:16px}
+.quiz-score{text-align:center;font-family:Georgia,serif;font-size:16px;color:var(--gold);margin-bottom:16px;padding:10px;background:var(--panel);border-radius:10px;border:1px solid var(--border)}
+.quiz-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.quiz-photo{width:100%;height:auto;display:block;object-fit:contain;background:var(--panel)}
+.quiz-question{padding:14px;font-family:Georgia,serif;font-size:15px;color:var(--text);text-align:center}
+.quiz-choices{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+.quiz-btn{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;color:var(--text);cursor:pointer;text-align:left;font-family:Georgia,serif;transition:all 0.2s}
+.quiz-btn.correct{background:#1a3a1a;border-color:#4a9a4a;color:#7ada7a}
+.quiz-btn.wrong{background:#3a1a1a;border-color:#9a4a4a;color:#da7a7a}
+.quiz-btn:disabled{cursor:default}
+.quiz-next{display:block;width:100%;padding:12px;background:var(--gold);border:none;border-radius:10px;font-size:15px;font-family:Georgia,serif;font-weight:bold;color:var(--ink);cursor:pointer;margin-top:8px}
+.quiz-explication{padding:10px 14px;font-size:13px;color:var(--muted);font-style:italic;text-align:center}
+
+/* SETTINGS / MODALE APPS */
+.settings-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;display:none}
+.settings-overlay.open{display:block}
+.settings-panel{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid var(--gold);border-radius:20px 20px 0 0;z-index:201;max-height:82vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 0.3s ease}
+.settings-panel.open{transform:translateY(0)}
+.settings-header{padding:16px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+.settings-header h2{font-family:Georgia,serif;font-size:18px;color:var(--gold)}
+.settings-body{overflow-y:auto;padding:16px 12px;padding-bottom:calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+/* MOSAÏQUE */
+.apps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;padding:4px 0 16px}
+.apps-grid-item{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;text-decoration:none}
+.apps-grid-item img{width:56px;height:56px;border-radius:13px;background:var(--card);border:1px solid var(--border)}
+.apps-grid-item span{font-size:9px;color:var(--muted);text-align:center;line-height:1.2;max-width:64px;word-break:break-word}
+.apps-badge{display:block;margin:8px auto 0;height:36px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-inner">
+      <h1 id="titre-app">Auteurs de BD <span id="sous-titre">Bande Dessinée Mondiale</span></h1>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn-lang" id="btn-lang" onclick="toggleLang()">🇬🇧</button>
+        <button class="btn-settings" onclick="openSettings()">📱</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTRES -->
+  <div class="filtres" id="filtres"></div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" id="tab-liste" onclick="switchTab('liste')">📋 <span id="tl">Liste</span></button>
+    <button class="tab" id="tab-carte" onclick="switchTab('carte')">🗺️ <span id="tc">Carte</span></button>
+    <button class="tab" id="tab-quiz" onclick="switchTab('quiz')">🎯 <span id="tq">Quiz</span></button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="main-content">
+    <div class="liste" id="vue-liste"></div>
+  </div>
+
+</div>
+
+<!-- FICHE DETAIL -->
+<div class="fiche" id="fiche">
+  <div class="fiche-header">
+    <button class="btn-back" onclick="closeFiche()">‹</button>
+    <span class="fiche-titre" id="fiche-titre"></span>
+  </div>
+  <div class="fiche-body" id="fiche-body"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="settings-overlay" id="settings-overlay" onclick="closeSettings()"></div>
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-header">
+    <h2>Nos autres apps</h2>
+    <button onclick="closeSettings()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+  </div>
+  <div class="settings-body" id="settings-body">
+    <div class="apps-grid" id="apps-grid"></div>
+    <img class="apps-badge" src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/fr-fr" alt="App Store">
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DONNÉES
+// ============================================================
+var AUTEURS = [
+  // FRANCO-BELGES
+  {id:1, nom:"Hergé", prenom:"Georges Remi dit", pays:"Belgique", flag:"🇧🇪", style:"Ligne claire", naissance:1907, deces:1983, oeuvres:["Les Aventures de Tintin","Quick & Flupke","Jo, Zette et Jocko"], wiki:"Hergé", wt:"", lat:50.878, lng:4.294, bio_fr:"Créateur de Tintin, Hergé est le père de la bande dessinée franco-belge. Son style dit 'ligne claire', caractérisé par des contours nets et des couleurs uniformes, a influencé des générations d'auteurs. Tintin, son personnage phare, a été traduit en plus de 70 langues.", bio_en:"Creator of Tintin, Hergé is the father of Franco-Belgian comics. His 'clear line' style, characterized by clean outlines and flat colors, influenced generations of artists. Tintin has been translated into over 70 languages."},
+  {id:2, nom:"Goscinny", prenom:"René", pays:"France", flag:"🇫🇷", style:"Humour franco-belge", naissance:1926, deces:1977, oeuvres:["Astérix","Lucky Luke","Le Petit Nicolas","Iznogoud"], wiki:"René_Goscinny", wt:"", lat:48.862, lng:2.339, bio_fr:"Scénariste de génie, René Goscinny est co-créateur d'Astérix avec Uderzo, de Lucky Luke avec Morris et du Petit Nicolas avec Sempé. Son humour, sa culture encyclopédique et son sens du mot juste en font l'un des scénaristes les plus importants de l'histoire de la BD.", bio_en:"A genius scriptwriter, René Goscinny co-created Astérix with Uderzo, Lucky Luke with Morris, and Le Petit Nicolas with Sempé. His humor, encyclopedic culture and sharp wit make him one of the most important writers in comics history."},
+  {id:3, nom:"Uderzo", prenom:"Albert", pays:"France", flag:"🇫🇷", style:"Ligne claire", naissance:1927, deces:2020, oeuvres:["Astérix","Oumpah-pah"], wiki:"Albert_Uderzo", wt:"", lat:49.308, lng:3.687, bio_fr:"Dessinateur extraordinaire, Albert Uderzo a donné vie à Astérix et Obélix. Après la mort de Goscinny en 1977, il reprend seul la série jusqu'en 2009. Ses décors fouillés, ses personnages expressifs et ses gags visuels en font l'un des plus grands dessinateurs de tous les temps.", bio_en:"Extraordinary cartoonist, Albert Uderzo brought Astérix and Obélix to life. After Goscinny's death in 1977, he continued the series alone until 2009. His detailed backgrounds and expressive characters make him one of the greatest cartoonists ever."},
+  {id:4, nom:"Franquin", prenom:"André", pays:"Belgique", flag:"🇧🇪", style:"École de Bruxelles", naissance:1924, deces:1997, oeuvres:["Gaston Lagaffe","Spirou et Fantasio","Marsupilami"], wiki:"André_Franquin", wt:"", lat:50.833, lng:4.388, bio_fr:"André Franquin est l'un des piliers de la BD belge. Créateur de Gaston Lagaffe et du Marsupilami, il a porté Spirou et Fantasio à son apogée. Son trait dynamique, son sens de l'absurde et son humour irrésistible ont marqué des générations de lecteurs.", bio_en:"André Franquin is one of the pillars of Belgian comics. Creator of Gaston Lagaffe and the Marsupilami, he brought Spirou and Fantasio to its peak. His dynamic style and sense of the absurd have delighted generations of readers."},
+  {id:5, nom:"Moebius", prenom:"Jean Giraud dit", pays:"France", flag:"🇫🇷", style:"Science-fiction / Western", naissance:1938, deces:2012, oeuvres:["Le Garage hermétique","Blueberry","L'Incal","Arzach"], wiki:"Jean_Giraud", wt:"", lat:48.836, lng:2.482, bio_fr:"Jean Giraud, alias Moebius, a révolutionné la BD mondiale sous deux identités. En tant que Moebius, il crée des mondes de science-fiction surréalistes aux traits hypnotiques. En tant que Gir, il signe Blueberry, western psychologique de haute volée. Son influence dépasse la BD et touche le cinéma et l'art contemporain.", bio_en:"Jean Giraud, alias Moebius, revolutionized world comics under two identities. As Moebius, he created surrealist sci-fi worlds with hypnotic lines. As Gir, he created Blueberry, a high-quality psychological western. His influence extends beyond comics to cinema and contemporary art."},
+  {id:6, nom:"Peyo", prenom:"Pierre Culliford dit", pays:"Belgique", flag:"🇧🇪", style:"Ligne claire", naissance:1928, deces:1992, oeuvres:["Les Schtroumpfs","Johan et Pirlouit","Benoît Brisefer"], wiki:"Peyo", wt:"", lat:50.876, lng:4.352, bio_fr:"Peyo est le créateur des célèbres Schtroumpfs, petits êtres bleus vivant dans les champignons, devenus un phénomène mondial. Ces personnages, apparus initialement dans Johan et Pirlouit, ont conquis des générations entières à travers le monde.", bio_en:"Peyo is the creator of the famous Smurfs, little blue creatures living in mushrooms that became a worldwide phenomenon. These characters, originally appearing in Johan and Peewit, have conquered generations across the globe."},
+  {id:7, nom:"Charlier", prenom:"Jean-Michel", pays:"Belgique", flag:"🇧🇪", style:"Aventure / Western", naissance:1924, deces:1989, oeuvres:["Blueberry","Tanguy et Laverdure","Buck Danny"], wiki:"Jean-Michel_Charlier", wt:"", lat:50.633, lng:5.567, bio_fr:"Jean-Michel Charlier est le grand scénariste de l'aventure franco-belge. Il co-crée Blueberry avec Moebius, Tanguy et Laverdure, Buck Danny et de nombreuses séries emblématiques. Son sens du rythme et sa documentation rigoureuse ont défini le standard du genre aventure.", bio_en:"Jean-Michel Charlier is the great scriptwriter of Franco-Belgian adventure comics. He co-created Blueberry with Moebius, Tanguy and Laverdure, Buck Danny and many iconic series. His sense of rhythm and rigorous research defined the adventure genre."},
+  {id:8, nom:"Hermann", prenom:"Hermann Huppen dit", pays:"Belgique", flag:"🇧🇪", style:"Réaliste", naissance:1938, deces:null, oeuvres:["Jeremiah","Comanche","Bernard Prince"], wiki:"Hermann_Huppen", wt:"", lat:50.424, lng:6.032, bio_fr:"Hermann est l'un des plus grands dessinateurs réalistes de la BD européenne. Son trait expressif et sa maîtrise du noir et blanc sont reconnaissables entre mille. Avec Jeremiah, il crée un western post-apocalyptique d'une sombre beauté.", bio_en:"Hermann is one of the greatest realistic artists in European comics. His expressive lines and mastery of black and white are instantly recognizable. With Jeremiah, he created a post-apocalyptic western of dark beauty."},
+  {id:9, nom:"Bilal", prenom:"Enki", pays:"France", flag:"🇫🇷", style:"Science-fiction / Politique", naissance:1951, deces:null, oeuvres:["La Trilogie Nikopol","Le Sommeil du Monstre","Partie de Chasse"], wiki:"Enki_Bilal", wt:"", lat:44.817, lng:20.457, bio_fr:"Enki Bilal est un auteur de BD et cinéaste franco-serbe. Son univers onirique et dystopique, ses couleurs froides et ses personnages hantés en font un artiste unique. La Trilogie Nikopol est considérée comme un chef-d'œuvre de la BD de science-fiction.", bio_en:"Enki Bilal is a Franco-Serbian comics author and filmmaker. His dreamlike and dystopian universe, cold colors and haunted characters make him a unique artist. The Nikopol Trilogy is considered a masterpiece of science fiction comics."},
+  {id:10, nom:"Tardi", prenom:"Jacques", pays:"France", flag:"🇫🇷", style:"Réaliste / Guerre", naissance:1946, deces:null, oeuvres:["Adèle Blanc-Sec","C'était la guerre des tranchées","Le Cri du peuple"], wiki:"Jacques_Tardi", wt:"", lat:44.933, lng:4.892, bio_fr:"Jacques Tardi est un auteur engagé dont l'œuvre est marquée par un pacifisme profond et une vision noire de l'Histoire. Ses albums sur la Première Guerre mondiale, notamment 'C'était la guerre des tranchées', sont des témoignages bouleversants. Adèle Blanc-Sec est son héroïne culte.", bio_en:"Jacques Tardi is a committed author whose work is marked by deep pacifism and a dark vision of History. His albums on World War I, especially 'It Was the War of the Trenches', are moving testimonials. Adèle Blanc-Sec is his cult heroine."},
+  {id:11, nom:"Pratt", prenom:"Hugo", pays:"Italie", flag:"🇮🇹", style:"Aventure / Poétique", naissance:1927, deces:1995, oeuvres:["Corto Maltese","Sgt. Kirk"], wiki:"Hugo_Pratt", wt:"", lat:44.061, lng:12.566, bio_fr:"Hugo Pratt est le créateur de Corto Maltese, marin aventurier et romantique devenu l'un des personnages les plus aimés de la BD mondiale. Son style poétique mêlant aventure, histoire et philosophie, et sa maîtrise du noir et blanc, font de lui un géant de la BD.", bio_en:"Hugo Pratt is the creator of Corto Maltese, an adventurous and romantic sailor who became one of the most beloved characters in world comics. His poetic style blending adventure, history and philosophy makes him a giant of the art form."},
+  // FRANÇAIS
+  {id:12, nom:"Gotlib", prenom:"Marcel", pays:"France", flag:"🇫🇷", style:"Humour / Absurde", naissance:1934, deces:2016, oeuvres:["Rubrique-à-brac","Gai-Luron","La Coccinelle"], wiki:"Marcel_Gotlib", wt:"", lat:48.892, lng:2.347, bio_fr:"Marcel Gotlib est le maître de l'humour absurde franco-belge. Co-fondateur de Fluide Glacial, il révolutionne la BD humoristique avec des gags visuels mémorables et un sens de l'autodérision incomparable. Rubrique-à-brac reste une référence indépassable.", bio_en:"Marcel Gotlib is the master of Franco-Belgian absurdist humor. Co-founder of Fluide Glacial, he revolutionized comic humor with memorable visual gags and incomparable self-deprecation. Rubrique-à-brac remains an unsurpassed reference."},
+  {id:13, nom:"Moynot", prenom:"Emmanuel", pays:"France", flag:"🇫🇷", style:"Polar / Noir", naissance:1956, deces:null, oeuvres:["Nestor Burma","Après la guerre"], wiki:"Emmanuel_Moynot", wt:"", lat:48.856, lng:2.352, bio_fr:"Emmanuel Moynot est un dessinateur français spécialisé dans le roman noir graphique. Son adaptation de Nestor Burma d'après Léo Malet est saluée pour sa fidélité et son atmosphère.", bio_en:"Emmanuel Moynot is a French cartoonist specializing in the graphic noir novel. His adaptation of Nestor Burma after Léo Malet is praised for its faithfulness and atmosphere."},
+  {id:14, nom:"Druillet", prenom:"Philippe", pays:"France", flag:"🇫🇷", style:"Science-fiction / Metal", naissance:1944, deces:null, oeuvres:["Lone Sloane","Salammbô","Yragaël"], wiki:"Philippe_Druillet", wt:"", lat:43.604, lng:1.444, bio_fr:"Philippe Druillet est un dessinateur de science-fiction baroque et visionnaire. Co-fondateur du magazine Métal Hurlant, son style hyperdétaillé aux architectures monumentales a défini l'esthétique de la SF des années 70. Son adaptation de Salammbô est considérée comme une œuvre majeure.", bio_en:"Philippe Druillet is a baroque and visionary science fiction artist. Co-founder of Métal Hurlant magazine, his hyper-detailed style with monumental architectures defined the aesthetic of 1970s SF. His adaptation of Salammbô is considered a major work."},
+  {id:15, nom:"Manara", prenom:"Milo", pays:"Italie", flag:"🇮🇹", style:"Érotique / Aventure", naissance:1945, deces:null, oeuvres:["Le Déclic","Giuseppe Bergman","HP et Giuseppe Bergman"], wiki:"Milo_Manara", wt:"", lat:46.757, lng:11.652, bio_fr:"Milo Manara est un dessinateur italien mondialement célèbre pour son style érotique raffiné. Sa maîtrise du dessin anatomique et sa sensualité en font une référence dans l'art de la BD adulte. Il a collaboré avec Hugo Pratt et Federico Fellini.", bio_en:"Milo Manara is an Italian cartoonist world-famous for his refined erotic style. His mastery of anatomical drawing and sensuality make him a reference in adult comics art. He collaborated with Hugo Pratt and Federico Fellini."},
+  // AMÉRICAINS
+  {id:16, nom:"Lee", prenom:"Stan", pays:"États-Unis", flag:"🇺🇸", style:"Super-héros", naissance:1922, deces:2018, oeuvres:["Spider-Man","X-Men","Iron Man","Thor","Les Quatre Fantastiques"], wiki:"Stan_Lee", wt:"", lat:40.758, lng:-73.985, bio_fr:"Stan Lee est le co-créateur de la plupart des super-héros Marvel. Avec Jack Kirby et Steve Ditko, il invente Spider-Man, X-Men, Iron Man, Thor et les Quatre Fantastiques dans les années 60. Son sens du spectacle et ses personnages psychologiquement complexes ont révolutionné les comics américains.", bio_en:"Stan Lee is the co-creator of most Marvel superheroes. With Jack Kirby and Steve Ditko, he invented Spider-Man, X-Men, Iron Man, Thor and the Fantastic Four in the 1960s. His sense of spectacle and psychologically complex characters revolutionized American comics."},
+  {id:17, nom:"Kirby", prenom:"Jack", pays:"États-Unis", flag:"🇺🇸", style:"Super-héros / Cosmique", naissance:1917, deces:1994, oeuvres:["Captain America","Fantastic Four","New Gods","Les Éternels"], wiki:"Jack_Kirby", wt:"", lat:40.714, lng:-73.984, bio_fr:"Jack Kirby, le 'King of Comics', est l'un des pères fondateurs des comics américains. Co-créateur de Captain America pendant la Seconde Guerre mondiale, puis des Quatre Fantastiques avec Stan Lee, il développe chez DC son 'Fourth World' épique. Son style dynamique et ses perspectives audacieuses définissent l'esthétique des super-héros.", bio_en:"Jack Kirby, the 'King of Comics', is one of the founding fathers of American comics. Co-creator of Captain America during WWII, then the Fantastic Four with Stan Lee, he developed his epic 'Fourth World' at DC. His dynamic style and bold perspectives define superhero aesthetics."},
+  {id:18, nom:"Eisner", prenom:"Will", pays:"États-Unis", flag:"🇺🇸", style:"Roman graphique", naissance:1917, deces:2005, oeuvres:["The Spirit","Un contrat avec Dieu","La Cuisine de New York"], wiki:"Will_Eisner", wt:"", lat:40.678, lng:-73.944, bio_fr:"Will Eisner est un pionnier de la BD américaine et l'inventeur du terme 'roman graphique'. The Spirit, son héros masqué des années 40, révolutionne la narration visuelle. Son album 'Un contrat avec Dieu' (1978) est le premier roman graphique reconnu comme tel. Les Eisner Awards portent son nom.", bio_en:"Will Eisner is a pioneer of American comics and the inventor of the term 'graphic novel'. The Spirit, his masked hero from the 1940s, revolutionized visual storytelling. His album 'A Contract with God' (1978) is the first recognized graphic novel. The Eisner Awards bear his name."},
+  {id:19, nom:"Spiegelman", prenom:"Art", pays:"États-Unis", flag:"🇺🇸", style:"Roman graphique / Autobiographique", naissance:1948, deces:null, oeuvres:["Maus","In the Shadow of No Towers"], wiki:"Art_Spiegelman", wt:"", lat:59.334, lng:18.063, bio_fr:"Art Spiegelman est l'auteur de Maus, une biographie graphique de son père survivant de l'Holocauste dans laquelle les Juifs sont représentés par des souris et les Nazis par des chats. Premier roman graphique à recevoir le Prix Pulitzer en 1992, Maus a bouleversé les frontières entre BD et littérature.", bio_en:"Art Spiegelman is the author of Maus, a graphic biography of his Holocaust survivor father in which Jews are depicted as mice and Nazis as cats. The first graphic novel to receive the Pulitzer Prize in 1992, Maus blurred the boundaries between comics and literature."},
+  {id:20, nom:"Miller", prenom:"Frank", pays:"États-Unis", flag:"🇺🇸", style:"Noir / Super-héros", naissance:1957, deces:null, oeuvres:["Sin City","Batman: The Dark Knight Returns","Daredevil","300"], wiki:"Frank_Miller", wt:"", lat:39.145, lng:-77.071, bio_fr:"Frank Miller a radicalement transformé les comics américains avec son style noir expressionniste. Sa révision sombre de Batman dans 'The Dark Knight Returns' redéfinit le personnage pour l'éternité. Sin City est une œuvre graphique en noir et blanc d'une puissance visuelle incomparable.", bio_en:"Frank Miller radically transformed American comics with his expressionist noir style. His dark reinvention of Batman in 'The Dark Knight Returns' redefined the character forever. Sin City is a black and white graphic work of incomparable visual power."},
+  {id:21, nom:"Moore", prenom:"Alan", pays:"Royaume-Uni", flag:"🇬🇧", style:"Déconstruction / Fantastique", naissance:1953, deces:null, oeuvres:["Watchmen","V pour Vendetta","From Hell","La Ligue des Gentlemen Extraordinaires"], wiki:"Alan_Moore", wt:"", lat:52.240, lng:-0.903, bio_fr:"Alan Moore est le scénariste le plus influent de l'histoire des comics. Watchmen déconstruit le genre super-héros avec une profondeur philosophique inégalée. V pour Vendetta imagine une dystopie fasciste britannique. Son refus des adaptations cinématographiques de ses œuvres est légendaire.", bio_en:"Alan Moore is the most influential scriptwriter in comics history. Watchmen deconstructs the superhero genre with unequalled philosophical depth. V for Vendetta imagines a British fascist dystopia. His refusal of film adaptations of his works is legendary."},
+  // JAPONAIS
+  {id:22, nom:"Tezuka", prenom:"Osamu", pays:"Japon", flag:"🇯🇵", style:"Manga", naissance:1928, deces:1989, oeuvres:["Astro Boy","Black Jack","Phoenix","Kimba le Lion Blanc"], wiki:"Osamu_Tezuka", wt:"", lat:34.790, lng:135.469, bio_fr:"Osamu Tezuka est le 'dieu du manga'. Il invente le manga moderne tel qu'on le connaît, avec ses grands yeux expressifs et ses récits cinématographiques. Astro Boy (1952) est la première série manga à être adaptée en anime. Son œuvre monumentale couvre plus de 700 volumes.", bio_en:"Osamu Tezuka is the 'god of manga'. He invented modern manga as we know it, with expressive big eyes and cinematic storytelling. Astro Boy (1952) was the first manga series adapted as anime. His monumental work spans more than 700 volumes."},
+  {id:23, nom:"Toriyama", prenom:"Akira", pays:"Japon", flag:"🇯🇵", style:"Manga / Shōnen", naissance:1955, deces:2024, oeuvres:["Dragon Ball","Dr. Slump","Chrono Trigger"], wiki:"Akira_Toriyama", wt:"", lat:35.197, lng:136.854, bio_fr:"Akira Toriyama est le créateur de Dragon Ball, l'une des séries manga et anime les plus populaires de tous les temps. Son style dynamique, ses personnages attachants et son sens du combat épique ont influencé l'ensemble de la culture populaire mondiale. Il est également le designer des personnages de nombreux jeux vidéo.", bio_en:"Akira Toriyama is the creator of Dragon Ball, one of the most popular manga and anime series of all time. His dynamic style, likeable characters and epic combat have influenced world popular culture. He is also the character designer for many video games."},
+  {id:24, nom:"Urasawa", prenom:"Naoki", pays:"Japon", flag:"🇯🇵", style:"Manga / Thriller", naissance:1960, deces:null, oeuvres:["Monster","20th Century Boys","Pluto"], wiki:"Naoki_Urasawa", wt:"", lat:35.669, lng:139.477, bio_fr:"Naoki Urasawa est considéré comme le plus grand mangaka contemporain. Monster est un thriller psychologique d'une intensité rare, suivant un chirurgien traqué pour un crime qu'il n'a pas commis. 20th Century Boys explore la nostalgie, l'amitié et la menace d'un gourou mystérieux.", bio_en:"Naoki Urasawa is considered the greatest contemporary manga artist. Monster is a psychological thriller of rare intensity, following a surgeon hunted for a crime he didn't commit. 20th Century Boys explores nostalgia, friendship and the threat of a mysterious cult leader."},
+  // AUTRES
+  {id:25, nom:"Töpffer", prenom:"Rodolphe", pays:"Suisse", flag:"🇨🇭", style:"Proto-BD", naissance:1799, deces:1846, oeuvres:["Monsieur Vieux Bois","Docteur Festus","Monsieur Crépin"], wiki:"Rodolphe_Töpffer", wt:"", lat:46.200, lng:6.147, bio_fr:"Rodolphe Töpffer est considéré comme l'inventeur de la bande dessinée moderne. Au début du XIXe siècle, il crée des 'histoires en estampes' combinant images séquentielles et textes, posant les bases du langage de la BD. Son influence sur les pionniers américains et européens de la BD est considérable.", bio_en:"Rodolphe Töpffer is considered the inventor of modern comics. In the early 19th century, he created 'picture stories' combining sequential images and text, laying the foundations of the comics language. His influence on American and European pioneers is considerable."},
+  {id:26, nom:"Miyazaki", prenom:"Hayao", pays:"Japon", flag:"🇯🇵", style:"Manga / Animation", naissance:1941, deces:null, oeuvres:["Nausicaä de la Vallée du Vent","Le Château de Cagliostro"], wiki:"Hayao_Miyazaki", wt:"", lat:35.708, lng:139.752, bio_fr:"Hayao Miyazaki est avant tout connu comme réalisateur du Studio Ghibli, mais il est aussi l'auteur du manga Nausicaä de la Vallée du Vent, publié de 1982 à 1994. Cette œuvre écologiste et humaniste est considérée comme une référence du manga d'aventure fantastique.", bio_en:"Hayao Miyazaki is primarily known as a Studio Ghibli director, but he is also the author of the Nausicaä of the Valley of the Wind manga, published from 1982 to 1994. This ecological and humanist work is considered a reference of fantasy adventure manga."},
+  {id:27, nom:"Díaz Canales", prenom:"Juan", pays:"Espagne", flag:"🇪🇸", style:"Aventure / Polar", naissance:1972, deces:null, oeuvres:["Blacksad"], wiki:"Juan_Díaz_Canales", wt:"", lat:40.416, lng:-3.703, bio_fr:"Juan Díaz Canales est le scénariste de Blacksad, série policière anthropomorphique dont le héros est un chat détective dans les États-Unis des années 50. Avec le dessinateur Juanjo Guarnido, ils ont créé l'une des BD les plus acclamées de ces dernières décennies.", bio_en:"Juan Díaz Canales is the writer of Blacksad, an anthropomorphic detective series featuring a cat detective in 1950s America. With artist Juanjo Guarnido, they created one of the most acclaimed comics of recent decades."},
+  {id:28, nom:"Sfar", prenom:"Joann", pays:"France", flag:"🇫🇷", style:"Poétique / Fantastique", naissance:1971, deces:null, oeuvres:["Le Chat du Rabbin","Donjon","Petit Vampire"], wiki:"Joann_Sfar", wt:"", lat:43.710, lng:7.262, bio_fr:"Joann Sfar est un auteur prolixe et polyvalent, à la fois dessinateur, scénariste et réalisateur. Le Chat du Rabbin, sa série phare, explore l'identité juive avec humour et tendresse. Il est l'un des auteurs les plus importants de la BD française contemporaine.", bio_en:"Joann Sfar is a prolific and versatile author, both cartoonist, scriptwriter and filmmaker. The Rabbi's Cat, his flagship series, explores Jewish identity with humor and tenderness. He is one of the most important authors in contemporary French comics."},
+  {id:29, nom:"Guibert", prenom:"Emmanuel", pays:"France", flag:"🇫🇷", style:"Autobiographique / Historique", naissance:1964, deces:null, oeuvres:["Le Photographe","La Guerre d'Alan","L'Arabe du futur"], wiki:"Emmanuel_Guibert", wt:"", lat:48.851, lng:2.337, bio_fr:"Emmanuel Guibert est l'un des auteurs les plus respectés de la BD française contemporaine. La Guerre d'Alan retrace la Seconde Guerre mondiale à travers les souvenirs d'un vétéran américain. Le Photographe, co-réalisé avec Lefèvre, mêle BD et photographie de manière innovante.", bio_en:"Emmanuel Guibert is one of the most respected authors in contemporary French comics. The Photographer's Story retraces WWII through an American veteran's memories. The Photographer, co-created with Lefèvre, innovatively blends comics and photography."},
+  {id:30, nom:"Satrapi", prenom:"Marjane", pays:"Iran / France", flag:"🇮🇷", style:"Autobiographique", naissance:1969, deces:null, oeuvres:["Persepolis","Broderies","Poulet aux Prunes"], wiki:"Marjane_Satrapi", wt:"", lat:37.281, lng:49.582, bio_fr:"Marjane Satrapi est une autrice franco-iranienne dont le roman graphique autobiographique Persepolis raconte son enfance en Iran sous la Révolution islamique et son exil en Europe. Traduit en plus de 24 langues et adapté en film d'animation, Persepolis est devenu un classique mondial.", bio_en:"Marjane Satrapi is a Franco-Iranian author whose autobiographical graphic novel Persepolis tells of her childhood in Iran during the Islamic Revolution and her exile in Europe. Translated into over 24 languages and adapted as an animated film, Persepolis has become a world classic."},
+  // AUTEURS SUPPLÉMENTAIRES
+  {id:31, nom:"Morris", prenom:"Maurice De Bevere dit", pays:"Belgique", flag:"🇧🇪", style:"Humour franco-belge", naissance:1923, deces:2001, oeuvres:["Lucky Luke","Rantanplan"], wiki:"Morris_(auteur)", wt:"", lat:50.836, lng:4.533, bio_fr:"Morris est le créateur de Lucky Luke, le cow-boy 'qui tire plus vite que son ombre'. Né en 1946, la série est scénarisée par Goscinny de 1955 à 1977 puis reprise par d'autres auteurs. Lucky Luke est l'une des BD francophones les plus vendues au monde avec plus de 300 millions d'albums.", bio_en:"Morris is the creator of Lucky Luke, the cowboy 'who shoots faster than his shadow'. Born in 1946, the series was scripted by Goscinny from 1955 to 1977 then taken over by other writers. Lucky Luke is one of the best-selling Franco-Belgian comics worldwide with over 300 million albums."},
+  {id:32, nom:"Jacobs", prenom:"Edgar P.", pays:"Belgique", flag:"🇧🇪", style:"Ligne claire", naissance:1904, deces:1987, oeuvres:["Blake et Mortimer","Le Secret de l'Espadon","Le Mystère de la Grande Pyramide"], wiki:"Edgar_P._Jacobs", wt:"", lat:50.827, lng:4.379, bio_fr:"Edgar P. Jacobs est le créateur de Blake et Mortimer, série d'aventure et de science-fiction mettant en scène le capitaine Francis Blake et le professeur Philip Mortimer. Collaborateur d'Hergé, son style précis et ses récits denses font de lui un maître de la BD franco-belge classique.", bio_en:"Edgar P. Jacobs is the creator of Blake and Mortimer, an adventure and science-fiction series featuring Captain Francis Blake and Professor Philip Mortimer. A collaborator of Hergé, his precise style and dense narratives make him a master of classic Franco-Belgian comics."},
+  {id:33, nom:"Tillieux", prenom:"Maurice", pays:"Belgique", flag:"🇧🇪", style:"Humour / Aventure", naissance:1921, deces:1978, oeuvres:["Gil Jourdan","Félix"], wiki:"Maurice_Tillieux", wt:"", lat:50.523, lng:5.232, bio_fr:"Maurice Tillieux est le créateur de Gil Jourdan, détective privé belge, et de Félix. Son style nerveux et ses dialogues vifs, mêlant humour et action, en font l'un des grands auteurs de la BD réaliste belge des années 50-70.", bio_en:"Maurice Tillieux is the creator of Gil Jourdan, a Belgian private detective, and Félix. His sharp style and witty dialogue, blending humor and action, make him one of the great authors of Belgian realistic comics from the 1950s-70s."},
+  {id:34, nom:"Sente", prenom:"Yves", pays:"Belgique", flag:"🇧🇪", style:"Ligne claire", naissance:1964, deces:null, oeuvres:["Blake et Mortimer","Thorgal","Les Scorpions du Désert"], wiki:"Yves_Sente", wt:"", lat:50.855, lng:4.410, bio_fr:"Yves Sente est l'un des scénaristes belges les plus actifs de la BD contemporaine. Il reprend la série Blake et Mortimer avec succès et travaille sur Thorgal. Son sens du récit d'aventure classique le place dans la grande tradition de la BD franco-belge.", bio_en:"Yves Sente is one of the most active Belgian scriptwriters in contemporary comics. He successfully took over the Blake and Mortimer series and works on Thorgal. His sense of classic adventure storytelling places him in the great Franco-Belgian tradition."},
+  {id:35, nom:"Rosinski", prenom:"Grzegorz", pays:"Pologne", flag:"🇵🇱", style:"Heroic Fantasy", naissance:1941, deces:null, oeuvres:["Thorgal","Skodriks","Hans"], wiki:"Grzegorz_Rosiński", wt:"", lat:50.574, lng:22.049, bio_fr:"Grzegorz Rosinski est le dessinateur polonais créateur de Thorgal, saga heroic-fantasy mêlant mythologie nordique et science-fiction. Son dessin réaliste et expressif, ses décors grandioses et ses personnages charismatiques font de Thorgal l'une des séries phares du 9e art européen.", bio_en:"Grzegorz Rosinski is the Polish cartoonist and creator of Thorgal, a heroic fantasy saga blending Nordic mythology and science fiction. His realistic and expressive drawing style makes Thorgal one of the flagship series of European comics."},
+  {id:36, nom:"Van Hamme", prenom:"Jean", pays:"Belgique", flag:"🇧🇪", style:"Thriller / Aventure", naissance:1939, deces:null, oeuvres:["Thorgal","XIII","Largo Winch","Lady S."], wiki:"Jean_Van_Hamme", wt:"", lat:50.804, lng:4.372, bio_fr:"Jean Van Hamme est le scénariste le plus prolifique et le plus populaire de la BD européenne contemporaine. Créateur de Thorgal, XIII et Largo Winch, il maîtrise parfaitement le thriller, l'aventure et l'espionnage. XIII, enquête d'un amnésique sur fond de complot américain, est un chef-d'œuvre du genre.", bio_en:"Jean Van Hamme is the most prolific and popular scriptwriter in contemporary European comics. Creator of Thorgal, XIII and Largo Winch, he masters thriller, adventure and espionage. XIII, an amnesiac's investigation against a backdrop of American conspiracy, is a masterpiece of the genre."},
+  {id:37, nom:"Vance", prenom:"William", pays:"Belgique", flag:"🇧🇪", style:"Réaliste / Aventure", naissance:1935, deces:2018, oeuvres:["XIII","Bob Morane","Bruno Brazil"], wiki:"William_Vance", wt:"", lat:50.836, lng:4.308, bio_fr:"William Vance est un dessinateur belge au trait réaliste et énergique. Co-créateur de XIII avec Jean Van Hamme, il donne vie à l'amnésique le plus célèbre de la BD européenne. Son dessin dynamique, ses perspectives audacieuses et son sens de l'action en font un maître du genre.", bio_en:"William Vance is a Belgian cartoonist with a realistic and energetic style. Co-creator of XIII with Jean Van Hamme, he brought to life the most famous amnesiac in European comics. His dynamic drawing and sense of action make him a master of the genre."},
+  {id:38, nom:"Giraud", prenom:"Jean (Gir)", pays:"France", flag:"🇫🇷", style:"Western", naissance:1938, deces:2012, oeuvres:["Blueberry","Fort Navajo","La Mine de l'Allemand perdu"], wiki:"Jean_Giraud", wt:"", lat:48.834, lng:2.488, bio_fr:"Sous le pseudonyme Gir, Jean Giraud crée Blueberry en 1963 avec le scénariste Charlier. Ce western psychologique adulte au trait précis et aux atmosphères crépusculaires révolutionne le genre. Le Lieutenant Blueberry est un héros imparfait, amer et fascinant, aux antipodes des cow-boys lisses de l'époque.", bio_en:"Under the pseudonym Gir, Jean Giraud created Blueberry in 1963 with scriptwriter Charlier. This adult psychological western with precise lines and twilight atmospheres revolutionized the genre. Lieutenant Blueberry is an imperfect, bitter and fascinating hero."},
+  {id:39, nom:"Trondheim", prenom:"Lewis", pays:"France", flag:"🇫🇷", style:"Humour / Indépendant", naissance:1964, deces:null, oeuvres:["Lapinot","Donjon","Monsieur Jean","A.L.I.E.E.N."], wiki:"Lewis_Trondheim", wt:"", lat:48.404, lng:2.702, bio_fr:"Lewis Trondheim est un auteur français incontournable de la BD indépendante contemporaine. Co-fondateur de l'Association, il crée des univers variés allant de l'humour absurde (Lapinot) au heroic-fantasy (Donjon, avec Sfar). Son œuvre prolixe et inventive a renouvelé le langage de la BD française.", bio_en:"Lewis Trondheim is an essential French author of contemporary independent comics. Co-founder of L'Association, he creates diverse universes ranging from absurdist humor (Lapinot) to heroic fantasy (Dungeon, with Sfar). His prolific and inventive work has renewed the language of French comics."},
+  {id:40, nom:"Dupuy", prenom:"Philippe", pays:"France", flag:"🇫🇷", style:"Indépendant / Autobiographique", naissance:1960, deces:null, oeuvres:["Monsieur Jean","Haunted","Journal d'un album"], wiki:"Philippe_Dupuy", wt:"", lat:48.842, lng:2.302, bio_fr:"Philippe Dupuy forme avec Charles Berberian l'un des duos les plus respectés de la BD française contemporaine. Ensemble ils créent Monsieur Jean, chronique de la vie d'un écrivain parisien trentenaire, et explorent la BD autobiographique avec Journal d'un album.", bio_en:"Philippe Dupuy forms with Charles Berberian one of the most respected duos in contemporary French comics. Together they create Monsieur Jean, a chronicle of a Parisian writer's life, and explore autobiographical comics with Journal d'un album."},
+  {id:41, nom:"Ware", prenom:"Chris", pays:"États-Unis", flag:"🇺🇸", style:"Roman graphique / Expérimental", naissance:1967, deces:null, oeuvres:["Jimmy Corrigan","Building Stories","Rusty Brown"], wiki:"Chris_Ware", wt:"", lat:41.257, lng:-95.937, bio_fr:"Chris Ware est l'auteur américain le plus innovant de sa génération. Jimmy Corrigan, roman graphique sur la solitude et la filiation, a remporté le Guardian First Book Award en 2001. Son approche architecturale de la mise en page et sa précision graphique en font un artiste unique.", bio_en:"Chris Ware is the most innovative American author of his generation. Jimmy Corrigan, a graphic novel about loneliness and filiation, won the Guardian First Book Award in 2001. His architectural approach to page layout and graphic precision make him a unique artist."},
+  {id:42, nom:"Clowes", prenom:"Daniel", pays:"États-Unis", flag:"🇺🇸", style:"Roman graphique / Indie", naissance:1961, deces:null, oeuvres:["Ghost World","Wilson","Patience","Ice Haven"], wiki:"Daniel_Clowes", wt:"", lat:41.838, lng:-87.680, bio_fr:"Daniel Clowes est l'un des pères de la BD indépendante américaine. Ghost World, portrait de deux adolescentes en marge de la société, est adapté au cinéma par Terry Zwigoff en 2001. Son regard acéré sur la culture américaine et ses personnages désillusionnés en font une voix majeure.", bio_en:"Daniel Clowes is one of the fathers of American independent comics. Ghost World, a portrait of two teenage outsiders, was adapted for cinema by Terry Zwigoff in 2001. His sharp look at American culture makes him a major voice in comics."},
+  {id:43, nom:"Gaiman", prenom:"Neil", pays:"Royaume-Uni", flag:"🇬🇧", style:"Fantastique / Roman graphique", naissance:1960, deces:null, oeuvres:["Sandman","Black Orchid","Marvel 1602"], wiki:"Neil_Gaiman", wt:"", lat:50.845, lng:-1.117, bio_fr:"Neil Gaiman est un auteur britannique dont la série Sandman a révolutionné les comics américains. Mêlant mythologie, littérature classique et horreur, Sandman est la première série comics à recevoir un World Fantasy Award. Gaiman est également romancier (Coraline, American Gods) et scénariste.", bio_en:"Neil Gaiman is a British author whose Sandman series revolutionized American comics. Blending mythology, classic literature and horror, Sandman was the first comics series to win a World Fantasy Award. Gaiman is also a novelist and screenwriter."},
+  {id:44, nom:"Otomo", prenom:"Katsuhiro", pays:"Japon", flag:"🇯🇵", style:"Manga / Science-fiction", naissance:1954, deces:null, oeuvres:["Akira","Domu","Steamboy"], wiki:"Katsuhiro_Otomo", wt:"", lat:38.672, lng:141.182, bio_fr:"Katsuhiro Otomo est le créateur d'Akira, manga de science-fiction cyberpunk qui a révolutionné le manga et l'anime mondial. Publié de 1982 à 1990, Akira décrit un Tokyo post-nucléaire avec un niveau de détail et une maîtrise narrative sans précédent. L'adaptation animée de 1988 reste un chef-d'œuvre absolu.", bio_en:"Katsuhiro Otomo is the creator of Akira, a cyberpunk science fiction manga that revolutionized manga and anime worldwide. Published from 1982 to 1990, Akira depicts a post-nuclear Tokyo with unprecedented detail and narrative mastery. The 1988 animated adaptation remains an absolute masterpiece."},
+  {id:45, nom:"Inoue", prenom:"Takehiko", pays:"Japon", flag:"🇯🇵", style:"Manga / Arts martiaux", naissance:1967, deces:null, oeuvres:["Slam Dunk","Vagabond","Real"], wiki:"Takehiko_Inoue", wt:"", lat:34.504, lng:133.503, bio_fr:"Takehiko Inoue est l'un des mangakas les plus respectés au monde. Slam Dunk, manga de basket-ball, est l'une des séries les plus vendues de l'histoire. Vagabond, biographie romancée du samouraï Miyamoto Musashi, est considéré comme un chef-d'œuvre du dessin manga pour la beauté de ses planches.", bio_en:"Takehiko Inoue is one of the most respected manga artists in the world. Slam Dunk is one of the best-selling manga series in history. Vagabond, a fictionalized biography of samurai Miyamoto Musashi, is considered a masterpiece of manga drawing for the beauty of its pages."},
+  {id:46, nom:"Oda", prenom:"Eiichiro", pays:"Japon", flag:"🇯🇵", style:"Manga / Shōnen", naissance:1975, deces:null, oeuvres:["One Piece"], wiki:"Eiichiro_Oda", wt:"", lat:32.803, lng:130.708, bio_fr:"Eiichiro Oda est le créateur de One Piece, le manga le plus vendu de tous les temps avec plus de 500 millions d'exemplaires dans le monde. Publié depuis 1997, One Piece suit Monkey D. Luffy et ses compagnons dans un monde de pirates. L'œuvre d'Oda est un monument de la culture populaire mondiale.", bio_en:"Eiichiro Oda is the creator of One Piece, the best-selling manga of all time with over 500 million copies worldwide. Published since 1997, One Piece follows Monkey D. Luffy and his crew in a world of pirates. Oda's work is a monument of world popular culture."},
+  {id:47, nom:"Kishimoto", prenom:"Masashi", pays:"Japon", flag:"🇯🇵", style:"Manga / Shōnen", naissance:1974, deces:null, oeuvres:["Naruto","Samurai 8"], wiki:"Masashi_Kishimoto", wt:"", lat:35.110, lng:134.170, bio_fr:"Masashi Kishimoto est le créateur de Naruto, l'une des trilogies manga les plus célèbres avec One Piece et Dragon Ball. L'histoire du jeune ninja Naruto Uzumaki, publiée de 1999 à 2014, a été adaptée en anime et vendue à plus de 250 millions d'exemplaires dans le monde.", bio_en:"Masashi Kishimoto is the creator of Naruto, one of the most famous manga trilogies alongside One Piece and Dragon Ball. The story of young ninja Naruto Uzumaki, published from 1999 to 2014, was adapted as anime and sold over 250 million copies worldwide."},
+  {id:48, nom:"Kubert", prenom:"Joe", pays:"États-Unis", flag:"🇺🇸", style:"Super-héros / Guerre", naissance:1926, deces:2012, oeuvres:["Hawkman","Sgt. Rock","Tarzan","Enemy Ace"], wiki:"Joe_Kubert", wt:"", lat:51.982, lng:22.514, bio_fr:"Joe Kubert est l'un des plus grands dessinateurs de comics américains du XXe siècle. Ses représentations de la guerre, notamment dans Sgt. Rock, sont d'une puissance dramatique incomparable. Fondateur de la Joe Kubert School of Cartoon and Graphic Art, il a formé des générations de dessinateurs.", bio_en:"Joe Kubert is one of the greatest American comics artists of the 20th century. His depictions of war, notably in Sgt. Rock, are of incomparable dramatic power. Founder of the Joe Kubert School, he trained generations of cartoonists."},
+  {id:49, nom:"Crepax", prenom:"Guido", pays:"Italie", flag:"🇮🇹", style:"Érotique / Surréaliste", naissance:1933, deces:2003, oeuvres:["Valentina","Bianca","Anita"], wiki:"Guido_Crepax", wt:"", lat:45.468, lng:9.182, bio_fr:"Guido Crepax est le créateur de Valentina, personnage féminin emblématique de la BD italienne adulte. Son style inspiré du Pop Art, ses découpages cinématographiques innovants et son univers onirique mêlant érotisme et surréalisme en font un artiste d'avant-garde dont l'influence perdure.", bio_en:"Guido Crepax is the creator of Valentina, an iconic female character of Italian adult comics. His Pop Art-inspired style, innovative cinematic panel layouts and dreamlike universe blending eroticism and surrealism make him an avant-garde artist of lasting influence."},
+  {id:50, nom:"Cosey", prenom:"Bernard Cosandey dit", pays:"Suisse", flag:"🇨🇭", style:"Aventure / Poétique", naissance:1950, deces:null, oeuvres:["Jonathan","À la recherche de Peter Pan","Orchidée Blanche"], wiki:"Cosey", wt:"", lat:46.521, lng:6.633, bio_fr:"Cosey est un auteur suisse dont les récits de voyage et d'aventure intérieure sont parmi les plus poétiques de la BD européenne. Sa série Jonathan, pérégrinations d'un jeune homme en Asie, est un hymne à l'errance et à la découverte de soi. Son trait doux et ses aquarelles lumineuses sont immédiatement reconnaissables.", bio_en:"Cosey is a Swiss author whose travel and inner adventure stories are among the most poetic in European comics. His series Jonathan, the wanderings of a young man in Asia, is a hymn to drifting and self-discovery. His gentle lines and luminous watercolors are immediately recognizable."}
+];
+
+// ============================================================
+// ÉTAT
+// ============================================================
+var lang = "fr";
+var filtreActif = "Tous";
+var tabActif = "liste";
+var quizIndex = 0;
+var quizScore = 0;
+var quizRepondu = false;
+var quizOrdre = [];
+var carteInit = false;
+var leafletMap = null;
+
+var MGA_CONFIG = {
+  appCourante: "auteurs-bd",
+  apps: [
+    {id:"id6763507194", nom:"Hotels RoofTop Paris"},
+    {id:"id6762618424", nom:"Ponts du Monde"},
+    {id:"id6763076110", nom:"Paquebots Liners"},
+    {id:"id6763069304", nom:"Avions de Légende"},
+    {id:"id6763071567", nom:"Voitures de Légende"},
+    {id:"id6762077646", nom:"Flip Board"},
+    {id:"id6762632868", nom:"Trains Mythiques"},
+    {id:"id6762823383", nom:"Châteaux de la Loire"},
+    {id:"id6762598304", nom:"Mers & Océans"},
+    {id:"id6762594201", nom:"Détroits"},
+    {id:"id6762558969", nom:"ColorCodeMind"},
+    {id:"id6762552826", nom:"Lexigo"},
+    {id:"id6762542395", nom:"Conquêtes Sociales"},
+    {id:"id6762522136", nom:"Dynasties Chinoises"},
+    {id:"id6762452564", nom:"Dynasties Russes"},
+    {id:"id6762370541", nom:"Etats Unis"},
+    {id:"id6762091681", nom:"Bataille Navale"},
+    {id:"id6762098486", nom:"Familles Royales"},
+    {id:"id6762263227", nom:"Leaders Européens"},
+    {id:"id6762346365", nom:"Pays UE"},
+    {id:"id6762256169", nom:"Présidents Américains"},
+    {id:"id6762076518", nom:"Dames Checkers"},
+    {id:"id6761993002", nom:"Comédie Française"},
+    {id:"id6761769529", nom:"Institut de France"},
+    {id:"id6761324444", nom:"Présidents Français"},
+    {id:"id6761709149", nom:"Basilique Saint-Denis"},
+    {id:"id6761685637", nom:"Arbres de France"},
+    {id:"id6761363063", nom:"Sénat Paris"},
+    {id:"id6761656628", nom:"Compositeurs"},
+    {id:"id6761374601", nom:"Maréchaux Napoléon"},
+    {id:"id6761322546", nom:"Rois de France"},
+    {id:"id6761361079", nom:"Assemblée Paris"},
+    {id:"id6761335268", nom:"Panthéon Paris"},
+    {id:"id1483084001", nom:"Belote Calc"},
+    {id:"id6760751055", nom:"Cimetières Paris"},
+    {id:"id1481989301", nom:"Tarots Calc"},
+    {id:"id6761334922", nom:"Académie française"},
+    {id:"id6761293938", nom:"Scènes Paris"},
+    {id:"id6761271324", nom:"MediSafe"},
+    {id:"id6760617965", nom:"MesRestaurants"},
+    {id:"id6760126279", nom:"Cave Manager"},
+    {id:"id6760890465", nom:"Musées Paris"},
+    {id:"id6760929391", nom:"Théâtres Paris"},
+    {id:"id6759219383", nom:"FreshFood Manager"},
+    {id:"id1475884625", nom:"Toi ou Moi"},
+    {id:"id6761421276", nom:"Capitales Europe"},
+    {id:"id6762006105", nom:"Iconic Covers"}
+  ]
+};
+
+// ============================================================
+// LANG
+// ============================================================
+var TEXTES = {
+  fr: {sousTitre:"Bande Dessinée Mondiale", tl:"Liste", tc:"Carte", tq:"Quiz", filtresTous:"Tous", quiz_question_nom:"Quel est le nom de cet auteur ?", quiz_question_oeuvre:"Quelle œuvre est associée à cet auteur ?", quiz_suivant:"Question suivante →", quiz_score:"Score", quiz_sur:"sur", quiz_correct:"✓ Bonne réponse !", quiz_wrong:"✗ Mauvais"},
+  en: {sousTitre:"World Comics Artists", tl:"List", tc:"Map", tq:"Quiz", filtresTous:"All", quiz_question_nom:"Who is this comics author?", quiz_question_oeuvre:"Which work is associated with this author?", quiz_suivant:"Next question →", quiz_score:"Score", quiz_sur:"out of", quiz_correct:"✓ Correct!", quiz_wrong:"✗ Wrong"}
+};
+
+function t(k){ return TEXTES[lang][k] || k; }
+
+function toggleLang(){
+  lang = lang === "fr" ? "en" : "fr";
+  document.getElementById("btn-lang").textContent = lang === "fr" ? "🇬🇧" : "🇫🇷";
+  document.getElementById("sous-titre").textContent = t("sousTitre");
+  document.getElementById("tl").textContent = t("tl");
+  document.getElementById("tc").textContent = t("tc");
+  document.getElementById("tq").textContent = t("tq");
+  renderFiltres();
+  if(tabActif === "liste") renderListe();
+  else if(tabActif === "quiz") initQuiz();
+}
+
+// ============================================================
+// FILTRES
+// ============================================================
+var STYLES = ["Tous","Ligne claire","Super-héros","Manga","Roman graphique","Science-fiction","Aventure","Humour / Absurde","Humour franco-belge","Réaliste","Autobiographique","Heroic Fantasy","Western","Thriller / Aventure","Poétique / Fantastique","Indépendant / Autobiographique","Érotique / Surréaliste","Arts martiaux"];
+
+function renderFiltres(){
+  var wrap = document.getElementById("filtres");
+  wrap.innerHTML = "";
+  STYLES.forEach(function(s){
+    var chip = document.createElement("button");
+    chip.className = "chip" + (filtreActif === s ? " active" : "");
+    chip.textContent = s === "Tous" ? t("filtresTous") : s;
+    chip.onclick = function(){ filtreActif = s; renderFiltres(); if(tabActif==="liste") renderListe(); };
+    wrap.appendChild(chip);
+  });
+}
+
+function getAuteursFiltres(){
+  if(filtreActif === "Tous") return AUTEURS;
+  return AUTEURS.filter(function(a){ return a.style === filtreActif; });
+}
+
+// ============================================================
+// IMAGES
+// ============================================================
+var imgCache = {};
+
+function chargerImage(auteur, imgEl){
+  if(imgCache[auteur.id]){
+    imgEl.src = imgCache[auteur.id];
+    imgEl.style.objectFit = "cover";
+    return;
+  }
+  if(auteur.wt && auteur.wt.length > 0){
+    chargerImageDirecte(auteur, imgEl);
+  } else {
+    chargerImageWikipedia(auteur, imgEl);
+  }
+}
+
+function chargerImageDirecte(auteur, imgEl){
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
+    window.Capacitor.Plugins.CapacitorHttp.get({url: auteur.wt, responseType:"arraybuffer"}).then(function(r){
+      var b64 = "data:image/jpeg;base64," + r.data;
+      imgCache[auteur.id] = b64;
+      imgEl.src = b64;
+      imgEl.style.objectFit = "cover";
+    }).catch(function(){ chargerImageWikipedia(auteur, imgEl); });
+  } else {
+    imgEl.src = auteur.wt;
+    imgEl.style.objectFit = "cover";
+    imgCache[auteur.id] = auteur.wt;
+  }
+}
+
+function chargerImageWikipedia(auteur, imgEl){
+  if(!auteur.wiki || auteur.wiki.length === 0){
+    imgEl.textContent = "✏️";
+    return;
+  }
+  var apiUrl = "https://fr.wikipedia.org/w/api.php?action=query&titles=" + encodeURIComponent(auteur.wiki) + "&prop=pageimages&pithumbsize=400&format=json&origin=*";
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
+    window.Capacitor.Plugins.CapacitorHttp.get({url: apiUrl}).then(function(r){
+      var data = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+      var pages = data.query.pages;
+      var page = Object.values(pages)[0];
+      if(page.thumbnail && page.thumbnail.source){
+        window.Capacitor.Plugins.CapacitorHttp.get({url: page.thumbnail.source, responseType:"arraybuffer"}).then(function(r2){
+          var b64 = "data:image/jpeg;base64," + r2.data;
+          imgCache[auteur.id] = b64;
+          imgEl.src = b64;
+          imgEl.style.objectFit = "cover";
+        }).catch(function(){ imgEl.textContent = "✏️"; });
+      } else { imgEl.textContent = "✏️"; }
+    }).catch(function(){ imgEl.textContent = "✏️"; });
+  } else {
+    // Navigateur web : fetch direct (pour debug)
+    fetch(apiUrl).then(function(r){ return r.json(); }).then(function(data){
+      var pages = data.query.pages;
+      var page = Object.values(pages)[0];
+      if(page.thumbnail && page.thumbnail.source){
+        imgCache[auteur.id] = page.thumbnail.source;
+        imgEl.src = page.thumbnail.source;
+        imgEl.style.objectFit = "cover";
+      } else { imgEl.textContent = "✏️"; }
+    }).catch(function(){ imgEl.textContent = "✏️"; });
+  }
+}
+
+// ============================================================
+// LISTE
+// ============================================================
+function renderListe(){
+  var wrap = document.getElementById("vue-liste");
+  wrap.innerHTML = "";
+  var liste = getAuteursFiltres();
+  liste.forEach(function(auteur){
+    var card = document.createElement("div");
+    card.className = "auteur-card";
+    card.onclick = function(){ openFiche(auteur); };
+
+    var imgWrap = document.createElement("div");
+    imgWrap.className = "auteur-photo loading";
+    imgWrap.style.cssText = "width:60px;height:60px;border-radius:8px;background:var(--panel);flex-shrink:0;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden";
+    imgWrap.textContent = "✏️";
+
+    var img = document.createElement("img");
+    img.style.cssText = "width:60px;height:60px;border-radius:8px;object-fit:cover;display:none";
+    img.onload = function(){ imgWrap.innerHTML = ""; imgWrap.appendChild(img); img.style.display="block"; };
+    chargerImage(auteur, img);
+
+    var info = document.createElement("div");
+    info.className = "auteur-info";
+    var annees = auteur.naissance + " – " + (auteur.deces || "");
+    info.innerHTML = '<div class="auteur-prenom">' + auteur.prenom + '</div>' +
+      '<div class="auteur-nom">' + auteur.nom + '</div>' +
+      '<div class="auteur-oeuvres">' + auteur.oeuvres[0] + '</div>' +
+      '<div class="auteur-meta"><span class="flag">' + auteur.flag + '</span><span class="badge">' + annees + '</span><span class="badge style">' + auteur.style + '</span></div>';
+
+    card.appendChild(imgWrap);
+    card.appendChild(info);
+    wrap.appendChild(card);
+  });
+}
+
+// ============================================================
+// FICHE
+// ============================================================
+function openFiche(auteur){
+  document.getElementById("fiche-titre").textContent = auteur.nom;
+  var body = document.getElementById("fiche-body");
+  body.innerHTML = "";
+
+  // Photo grande
+  var photoWrap = document.createElement("div");
+  photoWrap.className = "fiche-photo-wrap";
+  var photoEl = document.createElement("div");
+  photoEl.style.cssText = "width:140px;height:140px;background:var(--panel);border-radius:12px;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:48px";
+  photoEl.textContent = "✏️";
+  var img = document.createElement("img");
+  img.className = "fiche-photo";
+  img.style.display = "none";
+  img.onload = function(){ photoEl.innerHTML=""; photoEl.style.padding="0"; photoEl.appendChild(img); img.style.display="block"; };
+  chargerImage(auteur, img);
+  photoWrap.appendChild(photoEl);
+
+  var content = document.createElement("div");
+  content.className = "fiche-content";
+  var annees = auteur.naissance + " – " + (auteur.deces ? auteur.deces : (lang==="fr"?"présent":"present"));
+  var bio = lang === "fr" ? auteur.bio_fr : auteur.bio_en;
+
+  content.innerHTML = '<div class="fiche-name">' + auteur.prenom + ' ' + auteur.nom + '</div>' +
+    '<div class="fiche-dates">' + annees + ' &nbsp;•&nbsp; ' + auteur.flag + ' ' + auteur.pays + '</div>' +
+    '<div class="fiche-tags"><span class="tag gold">' + auteur.style + '</span></div>' +
+    '<div class="fiche-section"><h3>' + (lang==="fr"?"Œuvres principales":"Main works") + '</h3><div class="oeuvres-list">' +
+    auteur.oeuvres.map(function(o){ return '<span class="oeuvre-chip">' + o + '</span>'; }).join("") +
+    '</div></div>' +
+    '<div class="fiche-section"><h3>Biographie</h3><p>' + bio + '</p></div>';
+
+  body.appendChild(photoWrap);
+  body.appendChild(content);
+  document.getElementById("fiche").classList.add("open");
+}
+
+function closeFiche(){
+  document.getElementById("fiche").classList.remove("open");
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(tab){
+  tabActif = tab;
+  ["liste","carte","quiz"].forEach(function(t){
+    document.getElementById("tab-"+t).classList.toggle("active", t===tab);
+  });
+  var main = document.getElementById("main-content");
+  main.innerHTML = "";
+  main.style.overflow = tab === "carte" ? "hidden" : "auto";
+
+  if(tab === "liste"){
+    var wrap = document.createElement("div");
+    wrap.className = "liste";
+    wrap.id = "vue-liste";
+    main.appendChild(wrap);
+    renderListe();
+  } else if(tab === "carte"){
+    var carteWrap = document.createElement("div");
+    carteWrap.style.cssText = "width:100%;height:100%";
+    carteWrap.id = "carte";
+    main.appendChild(carteWrap);
+    setTimeout(initCarte, 100);
+  } else if(tab === "quiz"){
+    var quizWrap = document.createElement("div");
+    quizWrap.className = "quiz-wrap";
+    quizWrap.id = "quiz-wrap";
+    main.appendChild(quizWrap);
+    initQuiz();
+  }
+}
+
+// ============================================================
+// CARTE
+// ============================================================
+function initCarte(){
+  if(leafletMap){ leafletMap.remove(); leafletMap = null; }
+  var el = document.getElementById("carte");
+  if(!el) return;
+  leafletMap = L.map("carte", {zoomControl:false}).setView([30, 10], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:"© OpenStreetMap",maxZoom:18
+  }).addTo(leafletMap);
+
+  var liste = getAuteursFiltres();
+  liste.forEach(function(auteur){
+    var marker = L.marker([auteur.lat, auteur.lng], {
+      icon: L.divIcon({className:"", html:'<div style="font-size:28px;line-height:1">✏️</div>', iconSize:[30,30], iconAnchor:[15,15]})
+    }).addTo(leafletMap);
+    marker.bindPopup(
+      '<div style="font-family:Georgia,serif;min-width:150px">' +
+      '<div style="color:#c9a84c;font-weight:bold;font-size:15px">' + auteur.nom + '</div>' +
+      '<div style="color:#7a7090;font-size:12px">' + auteur.prenom + '</div>' +
+      '<div style="color:#e8e0d0;font-size:12px;margin-top:4px">' + auteur.oeuvres[0] + '</div>' +
+      '<div style="color:#7a7090;font-size:11px;margin-top:2px">' + auteur.flag + ' ' + auteur.pays + '</div>' +
+      '</div>'
+    );
+    marker.on("click", function(){ openFiche(auteur); });
+  });
+}
+
+// ============================================================
+// QUIZ
+// ============================================================
+function initQuiz(){
+  quizScore = 0;
+  quizIndex = 0;
+  quizOrdre = AUTEURS.slice().sort(function(){ return Math.random()-0.5; });
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion(){
+  var wrap = document.getElementById("quiz-wrap");
+  if(!wrap) return;
+  if(quizIndex >= quizOrdre.length){
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 20px"><div style="font-family:Georgia,serif;font-size:48px;color:var(--gold);margin-bottom:16px">🏆</div><div style="font-family:Georgia,serif;font-size:24px;color:var(--gold);margin-bottom:8px">' + t("quiz_score") + '</div><div style="font-family:Georgia,serif;font-size:36px;color:var(--cream);margin-bottom:24px">' + quizScore + ' / ' + quizOrdre.length + '</div><button class="quiz-next" onclick="initQuiz()">' + (lang==="fr"?"Rejouer":"Play again") + '</button></div>';
+    return;
+  }
+  var auteur = quizOrdre[quizIndex];
+  var questions = ["nom","oeuvre"];
+  var typeQ = questions[quizIndex % 2];
+  quizRepondu = false;
+
+  // Générer fausses réponses
+  var mauvais = AUTEURS.filter(function(a){ return a.id !== auteur.id; }).sort(function(){ return Math.random()-0.5; }).slice(0,3);
+  var choices, bonneReponse, question;
+
+  if(typeQ === "nom"){
+    question = t("quiz_question_nom");
+    bonneReponse = auteur.nom;
+    choices = [auteur.nom].concat(mauvais.map(function(a){ return a.nom; }));
+  } else {
+    question = t("quiz_question_oeuvre");
+    bonneReponse = auteur.oeuvres[0];
+    choices = [auteur.oeuvres[0]].concat(mauvais.map(function(a){ return a.oeuvres[0]; }));
+  }
+  choices = choices.sort(function(){ return Math.random()-0.5; });
+
+  wrap.innerHTML = '<div class="quiz-score">' + t("quiz_score") + ' : ' + quizScore + ' ' + t("quiz_sur") + ' ' + quizIndex + '</div>';
+  var card = document.createElement("div");
+  card.className = "quiz-card";
+
+  // Photo
+  var photoDiv = document.createElement("div");
+  photoDiv.style.cssText = "width:100%;min-height:160px;background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:60px";
+  photoDiv.textContent = "✏️";
+  var img = document.createElement("img");
+  img.className = "quiz-photo";
+  img.style.display = "none";
+  img.onload = function(){ photoDiv.innerHTML=""; photoDiv.style.minHeight="0"; photoDiv.appendChild(img); img.style.display="block"; };
+  chargerImage(auteur, img);
+  card.appendChild(photoDiv);
+
+  var qDiv = document.createElement("div");
+  qDiv.className = "quiz-question";
+  qDiv.textContent = question;
+  card.appendChild(qDiv);
+
+  var choicesDiv = document.createElement("div");
+  choicesDiv.className = "quiz-choices";
+  choices.forEach(function(c){
+    var btn = document.createElement("button");
+    btn.className = "quiz-btn";
+    btn.textContent = c;
+    btn.onclick = function(){
+      if(quizRepondu) return;
+      quizRepondu = true;
+      var correct = c === bonneReponse;
+      if(correct){ quizScore++; btn.className = "quiz-btn correct"; }
+      else { btn.className = "quiz-btn wrong"; }
+      // Montrer bonne réponse
+      var btns = choicesDiv.querySelectorAll(".quiz-btn");
+      btns.forEach(function(b){ b.disabled = true; if(b.textContent === bonneReponse) b.className = "quiz-btn correct"; });
+      // Explication
+      var expl = document.createElement("div");
+      expl.className = "quiz-explication";
+      expl.textContent = auteur.prenom + " " + auteur.nom + " — " + auteur.oeuvres.join(", ");
+      choicesDiv.appendChild(expl);
+      // Bouton suivant
+      var nxtBtn = document.createElement("button");
+      nxtBtn.className = "quiz-next";
+      nxtBtn.textContent = t("quiz_suivant");
+      nxtBtn.onclick = function(){ quizIndex++; renderQuizQuestion(); };
+      choicesDiv.appendChild(nxtBtn);
+    };
+    choicesDiv.appendChild(btn);
+  });
+  card.appendChild(choicesDiv);
+  wrap.appendChild(card);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings(){
+  document.getElementById("settings-overlay").classList.add("open");
+  document.getElementById("settings-panel").classList.add("open");
+  renderSettings();
+}
+function closeSettings(){
+  document.getElementById("settings-overlay").classList.remove("open");
+  document.getElementById("settings-panel").classList.remove("open");
+}
+function renderSettings(){
+  var grid = document.getElementById("apps-grid");
+  if(grid.childElementCount > 0) return; // déjà chargé
+  grid.innerHTML = "";
+  MGA_CONFIG.apps.forEach(function(app){
+    var numId = app.id.replace("id","");
+    var a = document.createElement("a");
+    a.className = "apps-grid-item";
+    a.href = "https://apps.apple.com/app/" + app.id;
+    a.target = "_blank";
+
+    var img = document.createElement("img");
+    img.alt = app.nom;
+    img.width = 56; img.height = 56;
+
+    var cbName = "itcb" + numId;
+    window[cbName] = function(d){
+      if(d.results && d.results[0]) img.src = d.results[0].artworkUrl60;
+    };
+    var s = document.createElement("script");
+    s.src = "https://itunes.apple.com/lookup?id=" + numId + "&callback=" + cbName;
+    document.body.appendChild(s);
+
+    var label = document.createElement("span");
+    label.textContent = app.nom;
+
+    a.appendChild(img);
+    a.appendChild(label);
+    grid.appendChild(a);
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderFiltres();
+renderListe();
+</script>
+</body>
+</html>
